@@ -6,3 +6,4 @@ share
 .vscode
 __pycache__
 pyvenv.cfg
+**/the-verdict.txt
