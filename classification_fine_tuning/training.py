@@ -1,5 +1,7 @@
 import torch
 from util import calc_loss_batch, calc_loss_loader, text_to_token_ids,token_ids_to_text,generate_text_simple, calc_loss_batch_classifier, calc_accuracy_loader, calc_loss_loader_classifier
+import time
+from plotter import plot_values
 
 def train_model_simple(model, train_loader, val_loader, optimizer, device, num_epochs, eval_freq, eval_iter, start_context, tokenizer):
     train_losses, val_losses, track_tokens_seen = [],[],[]
@@ -80,3 +82,46 @@ def train_classifier_simple(model, train_loader, val_loader, optimizer, device, 
         train_accs.append(train_accuracy)
         val_accs.append(val_accuracy)
     return train_losses, val_losses, train_accs, val_accs, examples_seen
+
+def fine_tune_classifier_and_save(config, model, train_loader, val_loader, optimizer, device, num_epochs, eval_freq=50, eval_iter=5):
+    for param in model.parameters():
+        param.requires_grad = False
+
+    torch.manual_seed(123)
+    num_classes = 2
+    model.out_head = torch.nn.Linear(in_features=config["emb_dim"], out_features=num_classes)
+
+    for param in model.trf_blocks[-1].parameters():
+        param.requires_grad = True
+    for param in model.final_norm.parameters():
+        param.requires_grad = True
+
+    model.to(device)
+
+    start_time = time.time()
+    torch.manual_seed(123)
+
+    train_losses, val_losses, train_accs, val_accs, examples_seen = train_classifier_simple(model, train_loader, val_loader, optimizer, device, num_epochs=num_epochs, eval_freq=eval_freq, eval_iter=eval_iter)
+    end_time = time.time()
+    execution_time_minutes = (end_time - start_time) / 60
+    print(f"Training completed in {execution_time_minutes:.2f} minutes")
+
+    epochs_tensor = torch.linspace(0, num_epochs, len(train_losses))
+    examples_seen_tensor = torch.linspace(0, examples_seen, len(train_losses))
+
+    plot_values(epochs_tensor, examples_seen_tensor, train_losses, val_losses, show=False)
+
+    epochs_tensor = torch.linspace(0, num_epochs, len(train_accs))
+    examples_seen_tensor = torch.linspace(0, examples_seen, len(train_accs))
+
+    plot_values(epochs_tensor, examples_seen_tensor, train_accs, val_accs, show=False)
+
+    train_accuracy = calc_accuracy_loader(train_loader, model, device)
+    val_accuracy = calc_accuracy_loader(val_loader, model, device)
+    test_accuracy = calc_accuracy_loader(test_loader, model, device)
+
+    print(f"Training accuracy {train_accuracy*100:.2f}%")
+    print(f"Validation accuracy {val_accuracy*100:.2f}&")
+    print(f"Test accuracy {test_accuracy*100:.2f}%")
+
+    torch.save({"model_state_dict":model.state_dict(),"optimizer_state_dict":optimizer.state_dict()}, "model_and_optimizer.pth")

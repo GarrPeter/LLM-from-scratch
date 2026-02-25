@@ -3,3 +3,4 @@ gpt2
 loss-plot.pdf
 *.zip
 *.csv
+*.pth

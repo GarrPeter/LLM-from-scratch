@@ -5,8 +5,8 @@ import tiktoken
 from gpt_download import download_and_load_gpt2
 from model import GPTModel
 from load_weights import load_weights_into_gpt
-from util import generate_text_simple, text_to_token_ids, token_ids_to_text, calc_accuracy_loader, calc_loss_loader_classifier, calc_loss_batch_classifier
-from training import train_classifier_simple
+from util import generate_text_simple, text_to_token_ids, token_ids_to_text, calc_accuracy_loader, calc_loss_loader_classifier, calc_loss_batch_classifier, load_fine_tuning, classify_review
+from training import fine_tune_classifier_and_save
 from plotter import plot_values
 import time
 
@@ -70,73 +70,15 @@ model.eval()
 
 # token_ids = generate_text_simple(model=model, idx=text_to_token_ids(text_2, tokenizer), max_new_tokens=23, context_size=BASE_CONFIG["context_length"])
 # print(token_ids_to_text(token_ids, tokenizer))
-
-for param in model.parameters():
-    param.requires_grad = False
-
-torch.manual_seed(123)
-num_classes = 2
-model.out_head = torch.nn.Linear(in_features=BASE_CONFIG["emb_dim"], out_features=num_classes)
-
-for param in model.trf_blocks[-1].parameters():
-    param.requires_grad = True
-for param in model.final_norm.parameters():
-    param.requires_grad = True
-
-# inputs = tokenizer.encode("Do you have the time")
-# inputs = torch.tensor(inputs).unsqueeze(0)
-# with torch.no_grad():
-#     outputs = model(inputs)
-# print("Last output token", outputs[:,-1,:])
-# probas = torch.softmax(outputs[:,-1,:], dim=-1)
-# label = torch.argmax(probas)
-# print("Class label:", label.item())
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model.to(device)
-
-# torch.manual_seed(123)
-# train_accuracy = calc_accuracy_loader(train_loader, model, device, num_batches=10)
-# val_accuracy = calc_accuracy_loader(val_loader, model, device, num_batches=10)
-# test_accuracy = calc_accuracy_loader(test_loader, model, device, num_batches=10)
-
-# print(f"Training accuracy: {train_accuracy*100:.2f}%")
-# print(f"Validation accuracy: {val_accuracy*100:.2f}%")
-# print(f"Test accuracy {test_accuracy*100:.2f}%")
-
-# with torch.no_grad():
-#     train_loss = calc_loss_loader_classifier(train_loader, model, device, num_batches=5)
-#     val_loss = calc_loss_loader_classifier(val_loader, model, device, num_batches=5)
-#     test_loss = calc_loss_loader_classifier(test_loader, model, device, num_batches=5)
-
-# print(f"Training loss: {train_loss:.3f}%")
-# print(f"Validation loss: {val_loss:.3f}%")
-# print(f"Test loss {test_loss:.3f}%")
-
-start_time = time.time()
-torch.manual_seed(123)
 optimizer = torch.optim.AdamW(model.parameters(), lr=5e-5, weight_decay=0.1)
 num_epochs=5
 
-train_losses, val_losses, train_accs, val_accs, examples_seen = train_classifier_simple(model, train_loader, val_loader, optimizer, device, num_epochs=num_epochs, eval_freq=50, eval_iter=5)
-end_time = time.time()
-execution_time_minutes = (end_time - start_time) / 60
-print(f"Training completed in {execution_time_minutes:.2f} minutes")
+fine_tune_classifier_and_save(BASE_CONFIG, model, train_loader, val_loader, optimizer, device, num_epochs)
 
-epochs_tensor = torch.linspace(0, num_epochs, len(train_losses))
-examples_seen_tensor = torch.linspace(0, examples_seen, len(train_losses))
+model, optimizer = load_fine_tuning(model, optimizer, device)
 
-plot_values(epochs_tensor, examples_seen_tensor, train_losses, val_losses, show=False)
-
-epochs_tensor = torch.linspace(0, num_epochs, len(train_accs))
-examples_seen_tensor = torch.linspace(0, examples_seen, len(train_accs))
-
-plot_values(epochs_tensor, examples_seen_tensor, train_accs, val_accs, show=False)
-
-train_accuracy = calc_accuracy_loader(train_loader, model, device)
-val_accuracy = calc_accuracy_loader(val_loader, model, device)
-test_accuracy = calc_accuracy_loader(test_loader, model, device)
-
-print(f"Training accuracy {train_accuracy*100:.2f}%")
-print(f"Validation accuracy {val_accuracy*100:.2f}&")
-print(f"Test accuracy {test_accuracy*100:.2f}%")
+text_1 = "You are a winner you have been specially selected to receive $1000 cash or a $2000 award."
+print(classify_review(text_1, model, tokenizer, device, max_length=train_dataset.max_length))
+text_2 = "Hey, just wanted to check if we're still on for dinner tonight? Let me know!"
+print(classify_review(text_2, model, tokenizer, device, max_length=train_dataset.max_length))
