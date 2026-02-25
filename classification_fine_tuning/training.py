@@ -83,7 +83,7 @@ def train_classifier_simple(model, train_loader, val_loader, optimizer, device, 
         val_accs.append(val_accuracy)
     return train_losses, val_losses, train_accs, val_accs, examples_seen
 
-def fine_tune_classifier_and_save(config, model, train_loader, val_loader, optimizer, device, num_epochs, eval_freq=50, eval_iter=5):
+def fine_tune_classifier_and_save(config, model, train_loader, val_loader, test_loader, optimizer, device, num_epochs, eval_freq=50, eval_iter=5):
     for param in model.parameters():
         param.requires_grad = False
 
@@ -114,7 +114,7 @@ def fine_tune_classifier_and_save(config, model, train_loader, val_loader, optim
     epochs_tensor = torch.linspace(0, num_epochs, len(train_accs))
     examples_seen_tensor = torch.linspace(0, examples_seen, len(train_accs))
 
-    plot_values(epochs_tensor, examples_seen_tensor, train_accs, val_accs, show=False)
+    plot_values(epochs_tensor, examples_seen_tensor, train_accs, val_accs, label="accuracy", show=False)
 
     train_accuracy = calc_accuracy_loader(train_loader, model, device)
     val_accuracy = calc_accuracy_loader(val_loader, model, device)

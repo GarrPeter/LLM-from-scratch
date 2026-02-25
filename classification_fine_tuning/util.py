@@ -118,7 +118,7 @@ def calc_loss_batch_classifier(input_batch, target_batch, model, device):
 def classify_review(text, model, tokenizer, device, max_length=None, pad_token_id=50256):
     model.eval()
     input_ids = tokenizer.encode(text)
-    supported_context_length = model.pos_emb_weight.shape[0]
+    supported_context_length = model.pos_emb.weight.shape[0]
 
     input_ids = input_ids[:min(max_length, supported_context_length)]
     input_ids += [pad_token_id] * (max_length - len(input_ids))

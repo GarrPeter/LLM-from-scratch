@@ -74,7 +74,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 optimizer = torch.optim.AdamW(model.parameters(), lr=5e-5, weight_decay=0.1)
 num_epochs=5
 
-fine_tune_classifier_and_save(BASE_CONFIG, model, train_loader, val_loader, optimizer, device, num_epochs)
+fine_tune_classifier_and_save(BASE_CONFIG, model, train_loader, val_loader, test_loader, optimizer, device, num_epochs)
 
 model, optimizer = load_fine_tuning(model, optimizer, device)
 
